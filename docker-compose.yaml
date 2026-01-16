@@ -98,23 +98,20 @@ services:
   ansible-cli:
     image: python:3.11-slim
     container_name: ansible-cli
-    working_dir: /work
-    networks:
-      - devops_lab
-    environment:
-      - TZ=${TZ}
+    networks: [devops_lab]
     volumes:
-      - ./:/work
-    entrypoint: ["bash", "-lc"]
+      - .:/work
+      - ./ansible/keys/id_rsa:/root/.ssh/id_rsa:ro # Mount private key directly
+    working_dir: /work
+    # This ensures Ansible is installed and the container stays alive
+    entrypoint: ["/bin/bash", "-c"]
     command:
       - |
-        set -euo pipefail
-        apt-get update >/dev/null
-        apt-get install -y --no-install-recommends openssh-client rsync >/dev/null
-        pip install --no-cache-dir ansible==10.* >/dev/null
-        echo "Ansible CLI ready."
+        apt-get update && apt-get install -y openssh-client sshpass rsync
+        pip install --no-cache-dir ansible
+        chmod 600 /root/.ssh/id_rsa
+        echo "Ansible CLI is ready."
         tail -f /dev/null
-    restart: unless-stopped
 
   tf:
     image: ghcr.io/gruntwork-io/terragrunt:0.67.0
