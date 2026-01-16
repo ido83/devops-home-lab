@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ------------------------------------------------------------------------------
 # DevOps Home Lab - single custom bridge network, service-name DNS
 # ------------------------------------------------------------------------------
@@ -437,20 +435,21 @@ services:
     restart: unless-stopped
 
   # Trivy adapter (register in Harbor UI as an "Interrogation Service / Scanner")
-  harbor-trivy:
-    image: ${TRIVY_ADAPTER_IMAGE}
-    container_name: harbor-trivy
-    networks: [devops_lab]
-    environment:
-      - SCANNER_LOG_LEVEL=info
-      - SCANNER_TRIVY_CACHE_DIR=/home/scanner/.cache/trivy
-      - SCANNER_TRIVY_REPORTS_DIR=/home/scanner/.cache/reports
-      - SCANNER_TRIVY_TIMEOUT=10m
-    volumes:
-      - trivy_cache:/home/scanner/.cache
-    expose:
-      - "8080"
-    restart: unless-stopped
+ harbor-trivy:
+  # If TRIVY_ADAPTER_IMAGE is missing, default to a known-good tag.
+  image: ${TRIVY_ADAPTER_IMAGE:-aquasec/harbor-scanner-trivy:0.33.0}
+  container_name: harbor-trivy
+  networks: [devops_lab]
+  environment:
+    - SCANNER_LOG_LEVEL=info
+    - SCANNER_TRIVY_CACHE_DIR=/home/scanner/.cache/trivy
+    - SCANNER_TRIVY_REPORTS_DIR=/home/scanner/.cache/reports
+    - SCANNER_TRIVY_TIMEOUT=10m
+  volumes:
+    - trivy_cache:/home/scanner/.cache
+  expose:
+    - "8080"
+  restart: unless-stopped
 
   # ============================================================================
   # 4) MANAGEMENT & OBSERVABILITY
