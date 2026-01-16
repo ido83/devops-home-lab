@@ -1,0 +1,7 @@
+---
+# Common vars for lab
+common_packages:
+  - curl
+  - ca-certificates
+  - jq
+

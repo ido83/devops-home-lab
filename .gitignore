@@ -1,0 +1,12 @@
+.env
+
+# SSH keys
+ansible/keys/*
+!ansible/keys/.gitkeep
+
+# Harbor generated key
+harbor/config/core/private_key.pem
+
+# Local volumes (if you ever bind-mount)
+**/.DS_Store
+

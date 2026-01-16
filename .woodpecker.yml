@@ -1,0 +1,51 @@
+# .woodpecker.yml
+# Woodpecker pipeline: build an image from this repo and push to Harbor.
+#
+# Key security principle:
+# - No secrets in this file. Harbor credentials are injected via Woodpecker secrets using `from_secret`.
+#   See Woodpecker secrets docs. :contentReference[oaicite:1]{index=1}
+
+variables:
+  # Change these two if you renamed Harbor's nginx service or port
+  HARBOR_REGISTRY: &harbor_registry "harbor-nginx:8080"
+  HARBOR_PROJECT:  &harbor_project  "devops-lab"
+
+steps:
+  - name: build-and-push-to-harbor
+    image: woodpeckerci/plugin-docker-buildx:2
+    privileged: true # required for the buildx plugin's nested daemon in many setups
+    settings:
+      # Full repository path (registry/project/image).
+      # Woodpecker provides CI_REPO_NAME; it is safe to use in expressions. :contentReference[oaicite:2]{index=2}
+      repo: *harbor_registry/*harbor_project/${CI_REPO_NAME}
+
+      # Registry hostname:port (plugin uses it for auth). :contentReference[oaicite:3]{index=3}
+      registry: *harbor_registry
+
+      # Use HTTP/insecure registry in the nested daemon (Harbor on :8080 in many lab setups).
+      # If you terminate TLS on Harbor instead, set insecure=false and use 443 + proper certs.
+      insecure: true  # supported by the plugin :contentReference[oaicite:4]{index=4}
+
+      # Build context / Dockerfile (adjust if your Dockerfile lives elsewhere)
+      context: .
+      dockerfile: Dockerfile
+
+      # Tag strategy:
+      # - auto_tag=true: tags default branch as "latest", tag events as semver (x, x.y, x.y.z). :contentReference[oaicite:5]{index=5}
+      # - plus we *always* add the commit SHA as an immutable tag
+      auto_tag: true
+      default_tag: latest
+      tags:
+        - ${CI_COMMIT_SHA}
+
+      # Credentials pulled from Woodpecker secrets store using `from_secret`. :contentReference[oaicite:6]{index=6}
+      username:
+        from_secret: harbor_username
+      password:
+        from_secret: harbor_password
+
+    when:
+      event:
+        - push
+        - tag
+

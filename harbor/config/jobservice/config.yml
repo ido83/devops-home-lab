@@ -1,0 +1,6 @@
+# Minimal Harbor jobservice config (lab)
+protocol: http
+core_url: http://harbor-core:8080
+loggers:
+  - level: INFO
+

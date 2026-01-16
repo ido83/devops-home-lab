@@ -1,0 +1,24 @@
+# Minimal SSHD config for lab use (key-only).
+Port 22
+Protocol 2
+
+# Host keys will be created on first start if missing
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+PermitRootLogin prohibit-password
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+
+AllowTcpForwarding yes
+X11Forwarding no
+PrintMotd no
+AcceptEnv LANG LC_*
+
+Subsystem sftp /usr/lib/openssh/sftp-server
+

@@ -1,0 +1,11 @@
+version: 0.1
+log:
+  level: info
+storage:
+  filesystem:
+    rootdirectory: /storage
+http:
+  addr: :5000
+  # Helps when Harbor is behind a proxy; commonly used fix for push/pull edge cases.
+  relativeurls: true
+

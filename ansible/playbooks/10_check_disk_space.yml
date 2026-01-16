@@ -1,0 +1,17 @@
+---
+# ------------------------------------------------------------------------------
+# Demo: check disk usage on all nodes
+# ------------------------------------------------------------------------------
+- name: Check disk space
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Run df -h
+      ansible.builtin.command: df -h
+      register: df_out
+      changed_when: false
+
+    - name: Print results
+      ansible.builtin.debug:
+        var: df_out.stdout_lines
+

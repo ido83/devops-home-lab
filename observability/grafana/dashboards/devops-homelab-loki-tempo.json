@@ -1,0 +1,89 @@
+{
+  "uid": "devops-homelab-loki-tempo",
+  "title": "DevOps HomeLab - Loki Logs & Tempo Traces",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "tags": ["homelab", "loki", "tempo", "docker-compose"],
+  "time": { "from": "now-30m", "to": "now" },
+
+  "templating": {
+    "list": [
+      {
+        "name": "container",
+        "label": "Container",
+        "type": "query",
+        "datasource": { "type": "loki", "uid": "loki" },
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "allValue": ".*",
+        "query": "label_values(container)",
+        "current": { "selected": true, "text": "All", "value": ".*" }
+      },
+      {
+        "name": "log_search",
+        "label": "Log contains",
+        "type": "textbox",
+        "query": "",
+        "current": { "text": "", "value": "" }
+      },
+      {
+        "name": "tempo_service_regex",
+        "label": "Tempo service (regex)",
+        "type": "textbox",
+        "query": ".*",
+        "current": { "text": ".*", "value": ".*" }
+      }
+    ]
+  },
+
+  "panels": [
+    {
+      "id": 1,
+      "type": "logs",
+      "title": "Container Logs (Loki)",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 10 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{container=~\"$container\"} |= \"$log_search\"",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Recent Traces (Tempo / TraceQL Search)",
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 10 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "traceqlSearch",
+          "tableType": "traces",
+          "limit": 20,
+          "query": "{ resource.service.name =~ \"$tempo_service_regex\" }"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          { "displayName": "Start time", "desc": true }
+        ]
+      }
+    }
+  ]
+}
+

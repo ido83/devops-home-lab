@@ -1,0 +1,34 @@
+---
+# ------------------------------------------------------------------------------
+# Nginx role for Ubuntu-based lab nodes (no systemd in container).
+# ------------------------------------------------------------------------------
+- name: Install nginx
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+    update_cache: true
+
+- name: Write a simple index page
+  ansible.builtin.copy:
+    dest: /var/www/html/index.html
+    content: |
+      <html>
+      <head><title>DevOps Home Lab</title></head>
+      <body>
+        <h1>Nginx on {{ inventory_hostname }}</h1>
+      </body>
+      </html>
+    mode: "0644"
+
+- name: Start nginx (daemon mode)
+  ansible.builtin.command: nginx
+  register: nginx_start
+  changed_when: "'already' not in (nginx_start.stderr | default(''))"
+  failed_when: false
+
+- name: Validate nginx is running
+  ansible.builtin.shell: |
+    set -e
+    pgrep nginx >/dev/null
+  changed_when: false
+

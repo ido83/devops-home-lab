@@ -1,0 +1,13 @@
+---
+# ------------------------------------------------------------------------------
+# Demo: install nginx on worker nodes (container "servers")
+# NOTE: these nodes do not run systemd. We start nginx via its binary.
+# ------------------------------------------------------------------------------
+- name: Install and start nginx on workers
+  hosts: workers
+  become: false
+  gather_facts: true
+  roles:
+    - common
+    - nginx
+

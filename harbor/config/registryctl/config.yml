@@ -1,0 +1,4 @@
+# Minimal registryctl config (lab)
+protocol: http
+registry_url: http://harbor-registry:5000
+

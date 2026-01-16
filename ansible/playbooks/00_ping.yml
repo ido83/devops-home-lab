@@ -1,0 +1,11 @@
+---
+# ------------------------------------------------------------------------------
+# Demo: verify SSH connectivity + basic Ansible execution
+# ------------------------------------------------------------------------------
+- name: Verify SSH connectivity to all nodes
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Ping via Ansible
+      ansible.builtin.ping:
+
