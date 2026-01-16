@@ -1,0 +1,34 @@
+# Git metadata (can be huge)
+.git
+.gitignore
+
+# Docker specific
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Programming language dependencies
+node_modules/
+jspm_packages/
+.npm
+__pycache__/
+*.py[cod]
+.venv/
+env/
+vendor/
+
+# Build outputs and logs
+dist/
+build/
+*.log
+npm-debug.log*
+
+# Environment secrets (CRITICAL for security)
+.env
+.env.*
+*.pem
+*.key
+
+# OS generated files
+.DS_Store
+Thumbs.db
