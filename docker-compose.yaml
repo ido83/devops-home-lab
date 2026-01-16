@@ -7,64 +7,54 @@ networks:
     driver: bridge
 
 # ------------------------------------------------------------------------------
-# IMPORTANT:
-# - Only ONE top-level "volumes:" block is allowed (YAML key uniqueness).
-# - This file is the corrected version (no duplicate "volumes:" keys).
+# VOLUMES
 # ------------------------------------------------------------------------------
 volumes:
   # Nodes
   master_docker_data:
   worker1_docker_data:
   worker2_docker_data:
-
   # Gitea
   gitea_data:
   gitea_db:
-
   # Woodpecker
   woodpecker_server_data:
   woodpecker_agent_data:
-
   # Semaphore
   semaphore_db:
   semaphore_data:
-
   # Observability
   grafana_data:
   loki_data:
   tempo_data:
-
   # Portainer
   portainer_data:
-
   # Harbor
   harbor_registry_data:
   harbor_core_data:
   harbor_jobservice_data:
   harbor_db_data:
-
   # Trivy adapter cache
   trivy_cache:
 
 services:
   # ============================================================================
   # 1) NODE SIMULATION (Ubuntu + dockerd + sshd)
-  #    These containers simulate "servers". Ansible connects via SSH.
   # ============================================================================
   lab-master:
     build:
       context: ./nodes/ubuntu-dind-ssh
     container_name: lab-master
     hostname: lab-master
-    privileged: true # required for dockerd-in-container
+    privileged: true
     environment:
       - TZ=${TZ}
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${MASTER_SSH_PORT}:22"
     volumes:
       - master_docker_data:/var/lib/docker
-      # Key-based SSH (no password auth). You create this file from your public key.
       - ./ansible/keys/authorized_keys:/root/.ssh/authorized_keys:ro
     restart: unless-stopped
 
@@ -76,7 +66,8 @@ services:
     privileged: true
     environment:
       - TZ=${TZ}
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${WORKER1_SSH_PORT}:22"
     volumes:
@@ -92,7 +83,8 @@ services:
     privileged: true
     environment:
       - TZ=${TZ}
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${WORKER2_SSH_PORT}:22"
     volumes:
@@ -102,16 +94,13 @@ services:
 
   # ============================================================================
   # 2) AUTOMATION LAYER
-  #    - ansible-cli: reproducible Ansible runner container
-  #    - tf: terraform+terragrunt toolbox container
-  #    - semaphore: web UI to run playbooks/terraform (mounts repo)
   # ============================================================================
-
   ansible-cli:
     image: python:3.11-slim
     container_name: ansible-cli
     working_dir: /work
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - TZ=${TZ}
     volumes:
@@ -124,9 +113,6 @@ services:
         apt-get install -y --no-install-recommends openssh-client rsync >/dev/null
         pip install --no-cache-dir ansible==10.* >/dev/null
         echo "Ansible CLI ready."
-        echo "Examples:"
-        echo "  ansible -i ansible/hosts.ini all -m ping"
-        echo "  ansible-playbook -i ansible/hosts.ini ansible/playbooks/00_ping.yml"
         tail -f /dev/null
     restart: unless-stopped
 
@@ -134,7 +120,8 @@ services:
     image: ghcr.io/gruntwork-io/terragrunt:0.67.0
     container_name: tf
     working_dir: /work/infra/live/dev
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - TZ=${TZ}
     volumes:
@@ -143,15 +130,14 @@ services:
     command:
       - |
         echo "Terraform/Terragrunt toolbox ready."
-        echo "Try:"
-        echo "  terragrunt run-all plan"
         tail -f /dev/null
     restart: unless-stopped
 
   semaphore-db:
     image: postgres:15
     container_name: semaphore-db
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - POSTGRES_DB=semaphore
       - POSTGRES_USER=semaphore
@@ -166,45 +152,36 @@ services:
     container_name: semaphore
     depends_on:
       - semaphore-db
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${SEMAPHORE_HTTP_PORT}:3000"
     environment:
-      # DB wiring
       - SEMAPHORE_DB_DIALECT=postgres
       - SEMAPHORE_DB_HOST=semaphore-db
       - SEMAPHORE_DB_PORT=5432
       - SEMAPHORE_DB_USER=semaphore
       - SEMAPHORE_DB_PASS=${SEMAPHORE_DB_PASSWORD}
       - SEMAPHORE_DB=semaphore
-
-      # Initial admin bootstrap
       - SEMAPHORE_ADMIN=${SEMAPHORE_ADMIN}
       - SEMAPHORE_ADMIN_PASSWORD=${SEMAPHORE_ADMIN_PASSWORD}
       - SEMAPHORE_ADMIN_NAME=${SEMAPHORE_ADMIN_NAME}
       - SEMAPHORE_ADMIN_EMAIL=${SEMAPHORE_ADMIN_EMAIL}
-
-      # Encrypt secrets stored by Semaphore
       - SEMAPHORE_ACCESS_KEY_ENCRYPTION=${SEMAPHORE_ACCESS_KEY_ENCRYPTION}
-
       - TZ=${TZ}
     volumes:
-      # Mount the repo so Semaphore can run playbooks/infra from it
       - ./:/work
       - semaphore_data:/var/lib/semaphore
     restart: unless-stopped
 
   # ============================================================================
   # 3) ALM & REGISTRY STACK
-  #    - Gitea
-  #    - Woodpecker CI
-  #    - Harbor (Bitnami) + Trivy adapter
   # ============================================================================
-
   gitea-db:
     image: postgres:15
     container_name: gitea-db
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - POSTGRES_DB=gitea
       - POSTGRES_USER=gitea
@@ -219,26 +196,21 @@ services:
     container_name: gitea
     depends_on:
       - gitea-db
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${GITEA_HTTP_PORT}:3000"
       - "${GITEA_SSH_PORT}:22"
     environment:
       - TZ=${TZ}
-
-      # Gitea DB connection
       - GITEA__database__DB_TYPE=postgres
       - GITEA__database__HOST=gitea-db:5432
       - GITEA__database__NAME=gitea
       - GITEA__database__USER=gitea
       - GITEA__database__PASSWD=${GITEA_DB_PASSWORD}
-
-      # URL that Gitea reports to clients/CI
       - GITEA__server__ROOT_URL=${GITEA_ROOT_URL}
       - GITEA__server__DOMAIN=gitea
       - GITEA__server__SSH_DOMAIN=gitea
-
-      # Allow local/container webhook targets for CI
       - GITEA__webhook__ALLOWED_HOST_LIST=external,loopback
     volumes:
       - gitea_data:/data
@@ -249,28 +221,19 @@ services:
     container_name: woodpecker-server
     depends_on:
       - gitea
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${WOODPECKER_HTTP_PORT}:8000"
     environment:
       - TZ=${TZ}
-
-      # Public URL for the Woodpecker UI (OAuth callback must match)
       - WOODPECKER_HOST=${WOODPECKER_HOST}
-
-      # Lab convenience
       - WOODPECKER_OPEN=true
-
-      # Shared secret between server and agents
       - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET}
-
-      # Gitea forge integration
       - WOODPECKER_GITEA=true
       - WOODPECKER_GITEA_URL=http://gitea:3000
       - WOODPECKER_GITEA_CLIENT=${WOODPECKER_GITEA_CLIENT}
       - WOODPECKER_GITEA_SECRET=${WOODPECKER_GITEA_SECRET}
-
-      # Initial admin user
       - WOODPECKER_ADMIN=${WOODPECKER_ADMIN}
     volumes:
       - woodpecker_server_data:/var/lib/woodpecker
@@ -281,27 +244,24 @@ services:
     container_name: woodpecker-agent
     depends_on:
       - woodpecker-server
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - TZ=${TZ}
       - WOODPECKER_SERVER=woodpecker-server:9000
       - WOODPECKER_AGENT_SECRET=${WOODPECKER_AGENT_SECRET}
-
-      # Ensures pipeline containers join the same network (so they can reach Harbor/Gitea by service name)
       - WOODPECKER_BACKEND_DOCKER_NETWORK=devops_lab
     volumes:
-      # WARNING: docker socket gives the agent control over the Docker host.
       - /var/run/docker.sock:/var/run/docker.sock
       - woodpecker_agent_data:/etc/woodpecker
     restart: unless-stopped
 
-  # -----------------------------
-  # Harbor (Bitnami multi-container)
-  # -----------------------------
+  # Harbor
   harbor-registry:
     image: docker.io/bitnami/harbor-registry:2
     container_name: harbor-registry
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - REGISTRY_HTTP_SECRET=${HARBOR_REGISTRY_HTTP_SECRET}
     volumes:
@@ -312,7 +272,8 @@ services:
   harbor-registryctl:
     image: docker.io/bitnami/harbor-registryctl:2
     container_name: harbor-registryctl
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - CORE_SECRET=${HARBOR_CORE_SECRET}
       - JOBSERVICE_SECRET=${HARBOR_JOBSERVICE_SECRET}
@@ -326,7 +287,8 @@ services:
   harbor-db:
     image: docker.io/bitnami/postgresql:13
     container_name: harbor-db
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - POSTGRESQL_PASSWORD=${HARBOR_DB_PASSWORD}
       - POSTGRESQL_DATABASE=registry
@@ -337,9 +299,9 @@ services:
   harbor-redis:
     image: docker.io/bitnami/redis:7.0
     container_name: harbor-redis
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
-      # Lab-only convenience; tighten for real usage.
       - ALLOW_EMPTY_PASSWORD=yes
     restart: unless-stopped
 
@@ -351,7 +313,8 @@ services:
       - harbor-registryctl
       - harbor-db
       - harbor-redis
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - CORE_KEY=${HARBOR_CORE_KEY}
       - _REDIS_URL_CORE=redis://harbor-redis:6379/0
@@ -360,7 +323,6 @@ services:
       - PORT=8080
       - LOG_LEVEL=info
       - EXT_ENDPOINT=${HARBOR_EXT_ENDPOINT}
-
       - DATABASE_TYPE=postgresql
       - POSTGRESQL_HOST=harbor-db
       - POSTGRESQL_PORT=5432
@@ -368,19 +330,14 @@ services:
       - POSTGRESQL_USERNAME=postgres
       - POSTGRESQL_PASSWORD=${HARBOR_DB_PASSWORD}
       - POSTGRESQL_SSLMODE=disable
-
       - REGISTRY_CONTROLLER_URL=http://harbor-registryctl:8080
       - REGISTRY_URL=http://harbor-registry:5000
       - TOKEN_SERVICE_URL=http://harbor-core:8080/service/token
-
       - HARBOR_ADMIN_PASSWORD=${HARBOR_ADMIN_PASSWORD}
-
       - CORE_SECRET=${HARBOR_CORE_SECRET}
       - JOBSERVICE_SECRET=${HARBOR_JOBSERVICE_SECRET}
-
       - CORE_URL=http://harbor-core:8080
       - JOBSERVICE_URL=http://harbor-jobservice:8080
-
       - REGISTRY_STORAGE_PROVIDER_NAME=filesystem
       - REGISTRY_CREDENTIAL_USERNAME=${HARBOR_REGISTRY_CREDENTIAL_USERNAME}
       - REGISTRY_CREDENTIAL_PASSWORD=${HARBOR_REGISTRY_CREDENTIAL_PASSWORD}
@@ -388,8 +345,6 @@ services:
     volumes:
       - harbor_core_data:/data
       - ./harbor/config/core/app.conf:/etc/core/app.conf:ro
-      # You must generate this file before first up:
-      #   openssl genrsa -out harbor/config/core/private_key.pem 4096
       - ./harbor/config/core/private_key.pem:/etc/core/private_key.pem:ro
     restart: unless-stopped
 
@@ -398,7 +353,8 @@ services:
     container_name: harbor-portal
     depends_on:
       - harbor-core
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     restart: unless-stopped
 
   harbor-jobservice:
@@ -407,7 +363,8 @@ services:
     depends_on:
       - harbor-core
       - harbor-redis
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     environment:
       - CORE_SECRET=${HARBOR_CORE_SECRET}
       - JOBSERVICE_SECRET=${HARBOR_JOBSERVICE_SECRET}
@@ -427,54 +384,51 @@ services:
       - harbor-core
       - harbor-portal
       - harbor-registry
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${HARBOR_HTTP_PORT}:8080"
     volumes:
       - ./harbor/config/proxy/nginx.conf:/opt/bitnami/nginx/conf/nginx.conf:ro
     restart: unless-stopped
 
-  # Trivy adapter (register in Harbor UI as an "Interrogation Service / Scanner")
- harbor-trivy:
-  # If TRIVY_ADAPTER_IMAGE is missing, default to a known-good tag.
-  image: ${TRIVY_ADAPTER_IMAGE:-aquasec/harbor-scanner-trivy:0.33.0}
-  container_name: harbor-trivy
-  networks: [devops_lab]
-  environment:
-    - SCANNER_LOG_LEVEL=info
-    - SCANNER_TRIVY_CACHE_DIR=/home/scanner/.cache/trivy
-    - SCANNER_TRIVY_REPORTS_DIR=/home/scanner/.cache/reports
-    - SCANNER_TRIVY_TIMEOUT=10m
-  volumes:
-    - trivy_cache:/home/scanner/.cache
-  expose:
-    - "8080"
-  restart: unless-stopped
+  harbor-trivy:
+    image: ${TRIVY_ADAPTER_IMAGE:-aquasec/harbor-scanner-trivy:0.33.0}
+    container_name: harbor-trivy
+    networks:
+      - devops_lab
+    environment:
+      - SCANNER_LOG_LEVEL=info
+      - SCANNER_TRIVY_CACHE_DIR=/home/scanner/.cache/trivy
+      - SCANNER_TRIVY_REPORTS_DIR=/home/scanner/.cache/reports
+      - SCANNER_TRIVY_TIMEOUT=10m
+    volumes:
+      - trivy_cache:/home/scanner/.cache
+    expose:
+      - "8080"
+    restart: unless-stopped
 
   # ============================================================================
   # 4) MANAGEMENT & OBSERVABILITY
-  #    - Portainer
-  #    - Netdata
-  #    - Grafana + Loki + Tempo + Promtail
   # ============================================================================
-
   portainer:
     image: portainer/portainer-ce:2.21.5
     container_name: portainer
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${PORTAINER_HTTP_PORT}:9000"
       - "${PORTAINER_HTTPS_PORT}:9443"
     volumes:
       - portainer_data:/data
-      # WARNING: docker socket grants full control over the docker host.
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
 
   netdata:
     image: netdata/netdata:v1.47.5
     container_name: netdata
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${NETDATA_HTTP_PORT}:19999"
     cap_add:
@@ -486,7 +440,8 @@ services:
   loki:
     image: grafana/loki:3.1.0
     container_name: loki
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     command: ["-config.file=/etc/loki/loki-config.yaml"]
     volumes:
       - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
@@ -496,13 +451,13 @@ services:
   tempo:
     image: grafana/tempo:2.6.1
     container_name: tempo
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     command: ["-config.file=/etc/tempo/tempo.yaml"]
     volumes:
       - ./observability/tempo/tempo.yaml:/etc/tempo/tempo.yaml:ro
       - tempo_data:/tmp/tempo
     ports:
-      # OTLP gRPC + HTTP for traces
       - "4317:4317"
       - "4318:4318"
     restart: unless-stopped
@@ -510,11 +465,11 @@ services:
   promtail:
     image: grafana/promtail:3.1.0
     container_name: promtail
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     command: ["-config.file=/etc/promtail/promtail-config.yaml"]
     volumes:
       - ./observability/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
-      # Docker logs + docker socket for container discovery
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:
@@ -524,7 +479,8 @@ services:
   grafana:
     image: grafana/grafana:11.2.0
     container_name: grafana
-    networks: [devops_lab]
+    networks:
+      - devops_lab
     ports:
       - "${GRAFANA_HTTP_PORT}:3000"
     environment:
@@ -533,15 +489,10 @@ services:
       - TZ=${TZ}
     volumes:
       - grafana_data:/var/lib/grafana
-
-      # Datasource provisioning (Loki + Tempo)
       - ./observability/grafana/provisioning/datasources/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-
-      # Optional: Dashboard provisioning (if you created these files)
       - ./observability/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       - loki
       - tempo
     restart: unless-stopped
-
